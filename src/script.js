@@ -3,7 +3,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
+import CustomShaderMaterial from 'three-custom-shader-material/vanilla'
 import GUI from 'lil-gui'
+import wobbleVertexShader from './shaders/wobble/vertex.glsl'
+import wobbleFragmentShader from './shaders/wobble/fragment.glsl'
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 
 /**
  * Base
@@ -28,27 +32,32 @@ gltfLoader.setDRACOLoader(dracoLoader)
 /**
  * Environment map
  */
-rgbeLoader.load('./urban_alley_01_1k.hdr', (environmentMap) =>
-{
-    environmentMap.mapping = THREE.EquirectangularReflectionMapping
+rgbeLoader.load('./urban_alley_01_1k.hdr', (environmentMap) => {
+  environmentMap.mapping = THREE.EquirectangularReflectionMapping
 
-    scene.background = environmentMap
-    scene.environment = environmentMap
+  scene.background = environmentMap
+  scene.environment = environmentMap
 })
 
 /**
  * Wobble
  */
 // Material
-const material = new THREE.MeshPhysicalMaterial({
-    metalness: 0,
-    roughness: 0.5,
-    color: '#ffffff',
-    transmission: 0,
-    ior: 1.5,
-    thickness: 1.5,
-    transparent: true,
-    wireframe: false
+const material = new CustomShaderMaterial({
+  //CSM
+  baseMaterial: THREE.MeshPhysicalMaterial,
+  vertexShader: wobbleVertexShader,
+  fragmentShader: wobbleFragmentShader,
+  silent: true,
+  // MeshPhysicalMaterial
+  metalness: 0,
+  roughness: 0.5,
+  color: '#ffffff',
+  transmission: 0,
+  ior: 1.5,
+  thickness: 1.5,
+  transparent: true,
+  wireframe: false,
 })
 
 // Tweaks
@@ -60,7 +69,10 @@ gui.add(material, 'thickness', 0, 10, 0.001)
 gui.addColor(material, 'color')
 
 // Geometry
-const geometry = new THREE.IcosahedronGeometry(2.5, 50)
+let geometry = new THREE.IcosahedronGeometry(2.5, 50)
+geometry = mergeVertices(geometry)
+geometry.computeTangents()
+console.log(geometry.attributes)
 
 // Mesh
 const wobble = new THREE.Mesh(geometry, material)
@@ -72,12 +84,12 @@ scene.add(wobble)
  * Plane
  */
 const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(15, 15, 15),
-    new THREE.MeshStandardMaterial()
+  new THREE.PlaneGeometry(15, 15, 15),
+  new THREE.MeshStandardMaterial()
 )
 plane.receiveShadow = true
 plane.rotation.y = Math.PI
-plane.position.y = - 5
+plane.position.y = -5
 plane.position.z = 5
 scene.add(plane)
 
@@ -89,40 +101,44 @@ directionalLight.castShadow = true
 directionalLight.shadow.mapSize.set(1024, 1024)
 directionalLight.shadow.camera.far = 15
 directionalLight.shadow.normalBias = 0.05
-directionalLight.position.set(0.25, 2, - 2.25)
+directionalLight.position.set(0.25, 2, -2.25)
 scene.add(directionalLight)
 
 /**
  * Sizes
  */
 const sizes = {
-    width: window.innerWidth,
-    height: window.innerHeight,
-    pixelRatio: Math.min(window.devicePixelRatio, 2)
+  width: window.innerWidth,
+  height: window.innerHeight,
+  pixelRatio: Math.min(window.devicePixelRatio, 2),
 }
 
-window.addEventListener('resize', () =>
-{
-    // Update sizes
-    sizes.width = window.innerWidth
-    sizes.height = window.innerHeight
-    sizes.pixelRatio = Math.min(window.devicePixelRatio, 2)
+window.addEventListener('resize', () => {
+  // Update sizes
+  sizes.width = window.innerWidth
+  sizes.height = window.innerHeight
+  sizes.pixelRatio = Math.min(window.devicePixelRatio, 2)
 
-    // Update camera
-    camera.aspect = sizes.width / sizes.height
-    camera.updateProjectionMatrix()
+  // Update camera
+  camera.aspect = sizes.width / sizes.height
+  camera.updateProjectionMatrix()
 
-    // Update renderer
-    renderer.setSize(sizes.width, sizes.height)
-    renderer.setPixelRatio(sizes.pixelRatio)
+  // Update renderer
+  renderer.setSize(sizes.width, sizes.height)
+  renderer.setPixelRatio(sizes.pixelRatio)
 })
 
 /**
  * Camera
  */
 // Base camera
-const camera = new THREE.PerspectiveCamera(35, sizes.width / sizes.height, 0.1, 100)
-camera.position.set(13, - 3, - 5)
+const camera = new THREE.PerspectiveCamera(
+  35,
+  sizes.width / sizes.height,
+  0.1,
+  100
+)
+camera.position.set(13, -3, -5)
 scene.add(camera)
 
 // Controls
@@ -133,8 +149,8 @@ controls.enableDamping = true
  * Renderer
  */
 const renderer = new THREE.WebGLRenderer({
-    canvas: canvas,
-    antialias: true
+  canvas: canvas,
+  antialias: true,
 })
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -148,18 +164,17 @@ renderer.setPixelRatio(sizes.pixelRatio)
  */
 const clock = new THREE.Clock()
 
-const tick = () =>
-{
-    const elapsedTime = clock.getElapsedTime()
+const tick = () => {
+  const elapsedTime = clock.getElapsedTime()
 
-    // Update controls
-    controls.update()
+  // Update controls
+  controls.update()
 
-    // Render
-    renderer.render(scene, camera)
+  // Render
+  renderer.render(scene, camera)
 
-    // Call tick again on the next frame
-    window.requestAnimationFrame(tick)
+  // Call tick again on the next frame
+  window.requestAnimationFrame(tick)
 }
 
 tick()
